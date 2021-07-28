@@ -1,6 +1,7 @@
 package excel
 
 import (
+	"fmt"
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
 )
 
@@ -22,4 +23,33 @@ func SetColsWidth(file *excelize.File, sheetName string, colsWidth map[string]fl
 		}
 	}
 	return nil
+}
+
+// GetTitleColList returns the list of title and column number pairs
+// tableTitleList: list of table titles from a sheet
+// namesToSearch: the list of names to search in the tableTitles
+// returns error if can't find all of the names from the title
+// Note: the returned column number is 0 based
+func GetTitleColList(tableTitleList, namesToSearch []string) (map[string]int, error) {
+	// initialize title name:column number pair
+	var nameCol = map[string]int{}
+	for _, name := range namesToSearch {
+		// init to any value, just to make a map with the title name
+		nameCol[name] = -1
+	}
+
+	// set the actual column number for the title
+	for i, j := range tableTitleList {
+		if _, ok := nameCol[j]; !ok {
+			continue
+		}
+		nameCol[j] = i
+	}
+
+	for k, v := range nameCol {
+		if v == -1 {
+			return nil, fmt.Errorf("can't find the column with title %s", k)
+		}
+	}
+	return nameCol, nil
 }
