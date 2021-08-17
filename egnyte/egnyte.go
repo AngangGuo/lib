@@ -8,71 +8,81 @@ import (
 	"time"
 )
 
-// Egnyte
-type Egnyte struct {
-	Token             string
-	facility          string
-	allFieldsFileLink string
-	linkDate          string
-}
+type facility string
 
 // facility names
 const (
-	VancouverFacility = "Vancouver"
-	TorontoFacility   = "Toronto"
+	VancouverFacility facility = "Vancouver"
+	TorontoFacility   facility = "Toronto"
 )
 
+// Egnyte RL Inventory All Fields file direct access link prefix and suffix
 // Example for RL Inventory All Fields files
 // [/Shared/Operations-RL/Daily RL All Fields Reports/RL Inventory All Fields_13072021_Vancouver, BC (RL).csv]
 // [/Shared/Operations-RL/Daily RL All Fields Reports/RL Inventory All Fields_13072021_Toronto, ON.csv]
 const (
-	linkPrefix = "https://cloudblue.egnyte.com/pubapi/v1/fs-content/Shared/Operations-RL/Daily%20RL%20All%20Fields%20Reports/RL%20Inventory%20All%20Fields_"
-	// ddmmyyyy format used in the link
-	linkDateFormat  = "02012006"
+	linkPrefix      = "https://cloudblue.egnyte.com/pubapi/v1/fs-content/Shared/Operations-RL/Daily%20RL%20All%20Fields%20Reports/RL%20Inventory%20All%20Fields_"
 	vancouverSuffix = "_Vancouver%2C%20BC%20(RL).csv"
 	torontoSuffix   = "_Toronto%2C%20ON.csv"
+	// ddmmyyyy format used in the link
+	linkDateFormat = "02012006"
 )
 
+// Egnyte is used to download files from egnyte.com
+type Egnyte struct {
+	token             string
+	facility          facility
+	allFieldsFileLink string
+	linkDate          string // format: ddmmyyyy(13072021)
+}
+
 // New create a new Egnyte instance
-// set EgnyteToken="69y...ctp
-// egnyteTokenName := "EgnyteToken"
-// token := os.Getenv(egnyteTokenName)
-// if token == "" {
-// 	return fmt.Errorf("can't find the egnyte token from environment variable: %s", egnyteTokenName)
-// }
-// egnyte := Egnyte.New(token)
-func New(token string) *Egnyte {
-	return &Egnyte{
-		Token: token,
-		// always download the latest file
-		// The latest uploaded file on website is from yesterday
-		linkDate: time.Now().AddDate(0, 0, -1).Format(linkDateFormat),
-	}
-}
-
-func (e *Egnyte) SetFacility(facility string) error {
-	switch facility {
-	case VancouverFacility, TorontoFacility:
-		e.facility = facility
-		e.setInventoryAllFieldsFileLink()
+func New(token string, fa facility) *Egnyte {
+	if token == "" || fa == "" {
 		return nil
+	}
+
+	e := &Egnyte{
+		token: token,
+	}
+
+	err := e.setFacility(fa)
+	if err != nil {
+		return nil
+	}
+
+	e.setInventoryAllFieldsFileLink()
+
+	return e
+}
+
+// setFacility set the egnyte facility and calculate the file link
+func (e *Egnyte) setFacility(fa facility) error {
+	switch fa {
+	case VancouverFacility, TorontoFacility:
+		e.facility = fa
+		return nil
+	case "":
+		return fmt.Errorf("setFacility: missing facility")
 	default:
-		return fmt.Errorf("setFacility: facility %s is not supported", facility)
+		return fmt.Errorf("setFacility: facility %v is not supported", fa)
 	}
 }
 
-// getInventoryAllFieldsFileLink return the direct api link of the latest RL Inventory All Fields file of the facility
+// setInventoryAllFieldsFileLink calculate the direct access link to the RL Inventory All Fields file in
+// https://cloudblue.egnyte.com/
 func (e *Egnyte) setInventoryAllFieldsFileLink() {
+	// always download the latest file which was uploaded last night
+	// the uploaded date as part of the url link.
+	linkDate := time.Now().AddDate(0, 0, -1).Format(linkDateFormat)
+
 	switch e.facility {
 	case VancouverFacility:
 		// For Vancouver: /Shared/Operations-RL/Daily RL All Fields Reports/RL Inventory All Fields_13072021_Vancouver, BC (RL).csv
-		e.allFieldsFileLink = linkPrefix + e.linkDate + vancouverSuffix
+		e.allFieldsFileLink = linkPrefix + linkDate + vancouverSuffix
 	case TorontoFacility:
 		// /Shared/Operations-RL/Daily RL All Fields Reports/RL Inventory All Fields_13072021_Toronto, ON.csv
-		e.allFieldsFileLink = linkPrefix + e.linkDate + torontoSuffix
-		//default:
-		//	e.allFieldsFileLink = ""
-		//	return fmt.Errorf("setInventoryAllFieldsFileLink: facility %s is not supported", facility)
+		e.allFieldsFileLink = linkPrefix + linkDate + torontoSuffix
 	}
 }
 
@@ -85,7 +95,7 @@ func (e *Egnyte) Download(filePath string) (int64, error) {
 	if err != nil {
 		return n, err
 	}
-	req.Header.Add("Authorization", "Bearer "+e.Token)
+	req.Header.Add("Authorization", "Bearer "+e.token)
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
@@ -94,12 +104,12 @@ func (e *Egnyte) Download(filePath string) (int64, error) {
 	defer response.Body.Close()
 
 	if response.StatusCode != 200 {
-		return n, fmt.Errorf("wrong status code: %v", response.StatusCode)
+		return n, fmt.Errorf("Download: can't download (status code: %v)", response.StatusCode)
 	}
 
 	out, err := os.Create(filePath)
 	if err != nil {
-		return n, err
+		return n, fmt.Errorf("Download: can't create file %s: %v", filePath, err)
 	}
 	defer out.Close()
 
