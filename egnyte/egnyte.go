@@ -37,32 +37,19 @@ type Egnyte struct {
 }
 
 // New create a new Egnyte instance
-func New(token string, fa facility) *Egnyte {
-	if token == "" || fa == "" {
-		return nil
-	}
-
-	e := &Egnyte{
+func New(token string) *Egnyte {
+	return &Egnyte{
 		token: token,
 	}
-
-	err := e.setFacility(fa)
-	if err != nil {
-		return nil
-	}
-
-	// latest file uploaded date
-	e.setFileDate(time.Now().AddDate(0, 0, -1))
-	e.setInventoryAllFieldsFileLink()
-
-	return e
 }
 
-// setFacility set the egnyte facility and calculate the file link
-func (e *Egnyte) setFacility(fa facility) error {
+// SetFacility set the Egnyte facility
+// Returns error if missing facility or facility is not supported
+func (e *Egnyte) SetFacility(fa facility) error {
 	switch fa {
 	case VancouverFacility, TorontoFacility:
 		e.facility = fa
+		e.setFileDate(time.Now().AddDate(0, 0, -1))
 		return nil
 	case "":
 		return fmt.Errorf("setFacility: missing facility")
@@ -76,17 +63,12 @@ func (e *Egnyte) setFacility(fa facility) error {
 // Example file: RL Inventory All Fields_13072021_Vancouver, BC (RL).csv
 func (e *Egnyte) setFileDate(t time.Time) {
 	e.linkDate = t.Format(linkDateFormat)
+	e.calcInventoryAllFieldsFileLink()
 }
 
-// setInventoryAllFieldsFileLink calculate the direct access link to the RL Inventory All Fields file in
+// calcInventoryAllFieldsFileLink calculate the direct access link to the RL Inventory All Fields file in
 // https://cloudblue.egnyte.com/
-func (e *Egnyte) setInventoryAllFieldsFileLink() {
-	// always download the latest file which was uploaded last night
-	// the uploaded date as part of the url link.
-	if e.linkDate == "" {
-		e.setFileDate(time.Now().AddDate(0, 0, -1))
-	}
-
+func (e *Egnyte) calcInventoryAllFieldsFileLink() {
 	switch e.facility {
 	case VancouverFacility:
 		// For Vancouver: /Shared/Operations-RL/Daily RL All Fields Reports/RL Inventory All Fields_13072021_Vancouver, BC (RL).csv
@@ -103,10 +85,6 @@ func (e *Egnyte) setInventoryAllFieldsFileLink() {
 func (e *Egnyte) Download(filePath string) (int64, error) {
 	// number of bytes downloaded
 	var n int64
-
-	if e.allFieldsFileLink == "" {
-		return n, fmt.Errorf("Download: missing file link")
-	}
 
 	req, err := http.NewRequest("GET", e.allFieldsFileLink, nil)
 	if err != nil {
