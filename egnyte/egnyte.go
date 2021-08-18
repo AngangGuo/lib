@@ -51,6 +51,8 @@ func New(token string, fa facility) *Egnyte {
 		return nil
 	}
 
+	// latest file uploaded date
+	e.setFileDate(time.Now().AddDate(0, 0, -1))
 	e.setInventoryAllFieldsFileLink()
 
 	return e
@@ -69,20 +71,31 @@ func (e *Egnyte) setFacility(fa facility) error {
 	}
 }
 
+// setFileDate specify the date of the uploaded file you want to download
+// the date is embedded in the file name like following(file was uploaded on 2021-07-13)
+// Example file: RL Inventory All Fields_13072021_Vancouver, BC (RL).csv
+func (e *Egnyte) setFileDate(t time.Time) {
+	e.linkDate = t.Format(linkDateFormat)
+}
+
 // setInventoryAllFieldsFileLink calculate the direct access link to the RL Inventory All Fields file in
 // https://cloudblue.egnyte.com/
 func (e *Egnyte) setInventoryAllFieldsFileLink() {
 	// always download the latest file which was uploaded last night
 	// the uploaded date as part of the url link.
-	linkDate := time.Now().AddDate(0, 0, -1).Format(linkDateFormat)
+	if e.linkDate == "" {
+		e.setFileDate(time.Now().AddDate(0, 0, -1))
+	}
 
 	switch e.facility {
 	case VancouverFacility:
 		// For Vancouver: /Shared/Operations-RL/Daily RL All Fields Reports/RL Inventory All Fields_13072021_Vancouver, BC (RL).csv
-		e.allFieldsFileLink = linkPrefix + linkDate + vancouverSuffix
+		e.allFieldsFileLink = linkPrefix + e.linkDate + vancouverSuffix
 	case TorontoFacility:
 		// /Shared/Operations-RL/Daily RL All Fields Reports/RL Inventory All Fields_13072021_Toronto, ON.csv
-		e.allFieldsFileLink = linkPrefix + linkDate + torontoSuffix
+		e.allFieldsFileLink = linkPrefix + e.linkDate + torontoSuffix
+	default:
+		e.allFieldsFileLink = ""
 	}
 }
 
@@ -90,6 +103,10 @@ func (e *Egnyte) setInventoryAllFieldsFileLink() {
 func (e *Egnyte) Download(filePath string) (int64, error) {
 	// number of bytes downloaded
 	var n int64
+
+	if e.allFieldsFileLink == "" {
+		return n, fmt.Errorf("Download: missing file link")
+	}
 
 	req, err := http.NewRequest("GET", e.allFieldsFileLink, nil)
 	if err != nil {
