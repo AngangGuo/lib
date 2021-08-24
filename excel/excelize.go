@@ -2,7 +2,7 @@ package excel
 
 import (
 	"fmt"
-	"github.com/360EntSecGroup-Skylar/excelize/v2"
+	"github.com/xuri/excelize/v2"
 )
 
 // SetColsWidth set the width of one or many columns in the sheetName of the file.
@@ -28,7 +28,8 @@ func SetColsWidth(file *excelize.File, sheetName string, colsWidth map[string]fl
 // GetTitleColList returns the list of title and column number pairs
 // tableTitleList: list of table titles from a sheet
 // namesToSearch: the list of names to search in the tableTitles
-// returns error if can't find all of the names from the title
+// returns error if any one of the names can't be found from the title
+//
 // Note: the returned column number is 0 based
 func GetTitleColList(tableTitleList, namesToSearch []string) (map[string]int, error) {
 	// initialize title name:column number pair
