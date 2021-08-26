@@ -8,12 +8,12 @@ import (
 	"time"
 )
 
-type facility string
+type Facility string
 
 // facility names
 const (
-	VancouverFacility facility = "Vancouver"
-	TorontoFacility   facility = "Toronto"
+	VancouverFacility Facility = "Vancouver"
+	TorontoFacility   Facility = "Toronto"
 )
 
 // Egnyte RL Inventory All Fields file direct access link prefix and suffix
@@ -31,7 +31,7 @@ const (
 // Egnyte is used to download files from egnyte.com
 type Egnyte struct {
 	token             string
-	facility          facility
+	facility          Facility
 	allFieldsFileLink string
 	linkDate          string // format: ddmmyyyy(13072021)
 }
@@ -45,7 +45,7 @@ func New(token string) *Egnyte {
 
 // SetFacility set the Egnyte facility
 // Returns error if missing facility or facility is not supported
-func (e *Egnyte) SetFacility(fa facility) error {
+func (e *Egnyte) SetFacility(fa Facility) error {
 	switch fa {
 	case VancouverFacility, TorontoFacility:
 		e.facility = fa
